@@ -340,4 +340,9 @@ formatFbDate <- function(datestring, format="datetime") {
 }
 
 
+pageDataToDFFields <- function(json){
+    dfs <- lapply(json, data.frame, stringsAsFactors = FALSE)
+    library(dplyr)
+    rbind_all(dfs)
+}
 

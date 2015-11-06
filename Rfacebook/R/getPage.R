@@ -49,16 +49,30 @@
 #'
 
 
-getPage <- function(page, token, n=100, since=NULL, until=NULL, feed=FALSE){
+getPage <- function(page, token, n=100, since=NULL, until=NULL, feed=FALSE, fields=NULL){
 
-	url <- paste0('https://graph.facebook.com/', page,
-		'/posts?fields=from,message,created_time,type,link,comments.summary(true)',
-		',likes.summary(true),shares')
-	if (feed){
+	if (is.null(fields)) {
 		url <- paste0('https://graph.facebook.com/', page,
-		'/feed?fields=from,message,created_time,type,link,comments.summary(true)',
-		',likes.summary(true),shares')
+			'/posts?fields=from,message,created_time,type,link,comments.summary(true)',
+			',likes.summary(true),shares')		
+	} else {
+		url <- paste0('https://graph.facebook.com/', page,
+			'/posts?fields=', paste(fields, collapse=','))		
 	}
+	print(url)
+
+	if (feed){
+	    
+	    if (is.null(fields)) {
+	        url <- paste0('https://graph.facebook.com/', page,
+	                      '/feed?fields=from,message,created_time,type,link,comments.summary(true)',
+	                      ',likes.summary(true),shares')		
+	    } else {
+	        url <- paste0('https://graph.facebook.com/', page,
+	                      '/feed?fields=', paste(fields, collapse=','))		
+	    }
+	}
+	print(url)
 	if (!is.null(until)){
 		url <- paste0(url, '&until=', until)
 	}
@@ -72,6 +86,7 @@ getPage <- function(page, token, n=100, since=NULL, until=NULL, feed=FALSE){
 		url <- paste0(url, "&limit=100")
 	}
 	# making query
+	print(url)
 	content <- callAPI(url=url, token=token)
 	l <- length(content$data); cat(l, "posts ")
 	
@@ -87,7 +102,12 @@ getPage <- function(page, token, n=100, since=NULL, until=NULL, feed=FALSE){
 	if (length(content$data)==0){ 
 		stop("No public posts were found")
 	}
-	df <- pageDataToDF(content$data)
+	
+	if (is.null(fields)) {
+	    df <- pageDataToDF(content$data)
+	} else {
+	    df <- pageDataToDFFields(content$data)
+	}
 
 	# sometimes posts older than 'until' are returned, so here
 	# I'm making sure the function stops when that happens
@@ -122,7 +142,14 @@ getPage <- function(page, token, n=100, since=NULL, until=NULL, feed=FALSE){
 				content <- callAPI(url=url, token=token)		
 				if (error==3){ stop(content$error_msg) }
 			}
-			new.df <- pageDataToDF(content$data)
+			#new.df <- pageDataToDF(content$data)
+			
+			if (is.null(fields)) {
+			    new.df <- pageDataToDF(content$data)
+			} else {
+			    new.df <- pageDataToDFFields(content$data)
+			}
+			
 			df.list <- c(df.list, list(new.df))
 
 			if (!is.null(since) & nrow(new.df)>0){
@@ -130,7 +157,7 @@ getPage <- function(page, token, n=100, since=NULL, until=NULL, feed=FALSE){
 				mindate <- min(dates)
 			}
 		}
-		df <- do.call(rbind, df.list)
+		df <- rbind_all(df.list)
 	}
 	# deleting posts after specified date
 	if (!is.null(since)){
